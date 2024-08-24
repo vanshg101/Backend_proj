@@ -3,10 +3,11 @@
  import {User} from "../modles/user.model.js"
  import { ApiResponse } from "../utils/ApiResponse.js";
  import {uplodeOnCloudinary} from "../utils/cloudinary.js"
+ import jwt from "jsonwebtoken"
+import mongoose from "mongoose";
 
  const registerUser = asyncHandler( async(req,res) =>{
     const {fullName,email,username,password}=req.body
-    console.log("email",email);
 
     if (fullName =="") {
         throw new APIError(400,"fullname is required")
@@ -17,28 +18,36 @@
     ) {
         throw new APIError(400,"All field are required")
     }
-    const existedUser=User.findOne({
+    const existedUser= await User.findOne({
         $or:[{username},{email}]
     })
     if (existedUser) {
         throw new APIError(409,"User with email or username already exist")
     }
+    console.log("req.files:", req.files);
     
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path;
+
+    let coverImageLocalPath;
+    if (req.files && Array.isArray(req.files.coverImage) 
+        &&req.files.coverImage.length >0) {
+        coverImageLocalPath=req.files?.coverImage[0]?.path;
+    }
+
 
     if (!avatarLocalPath) {
         throw new APIError(400,"Avatar file is required")
     }
 
-    const avatar=await uplodeOnCloudinary(avatarLocalPath)
+    const avatar =await uplodeOnCloudinary(avatarLocalPath)
     const coverImage = await uplodeOnCloudinary(coverImageLocalPath)
-
+  
     if(!avatar){
         throw new APIError(400,"Avatar file is required")
     }
 
-    const User =await User.create({
+    const user =await User.create({
         fullName,
         avatar:avatar.url,
         coverImage:coverImage?.url||"",
@@ -56,8 +65,8 @@
     }
 
     return res.status(201).json(
-        new ApiResponse(200,createdUser,"User registered Successfully")
-    )
+        new ApiResponse(201, createdUser, "User registered successfully")
+    );
 
  } )
  export {registerUser}
